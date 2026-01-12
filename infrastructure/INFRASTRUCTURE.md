@@ -1,17 +1,6 @@
 # Infrastructure - Azure Resource Setup
 
-> **Parent**: [PROJECT-MASTER.md](../PROJECT-MASTER.md)  
-> **Status**: 🔄 Active  
-> **Owner**: Infrastructure & DevOps
-
----
-
-## Overview
-
-This document covers all Azure resource provisioning and configuration for the AI Analytics Agent.
-
-**Region**: West US 2 (all resources co-located)  
-**Resource Group**: `rg-ai-foundry-learning`
+> **Status: ✅ COMPLETE** (January 11, 2026)
 
 ---
 
@@ -19,10 +8,14 @@ This document covers all Azure resource provisioning and configuration for the A
 
 | Resource | Name | Location | Status |
 |----------|------|----------|--------|
+| Resource Group | `rg-ai-foundry-learning` | - | ✅ Active |
 | Azure OpenAI | `openai-stihl-analytics` | West US | ✅ Deployed |
 | ADLS Gen2 | `adlsstihlanalytics` | West US | ✅ Deployed |
 | Databricks | `dbw-stihl-analytics` | West US | ✅ Deployed |
 | AI Foundry | `stihl-analytics-agent` | West US 2 | ✅ Deployed |
+| Access Connector | `dbw-stihl-access-connector` | West US | ✅ Deployed |
+
+---
 
 ## Endpoints
 
@@ -30,294 +23,198 @@ This document covers all Azure resource provisioning and configuration for the A
 |---------|----------|
 | Azure OpenAI | `https://openai-stihl-analytics.openai.azure.com/` |
 | ADLS DFS | `https://adlsstihlanalytics.dfs.core.windows.net/` |
+| ADLS Blob | `https://adlsstihlanalytics.blob.core.windows.net/` |
 | Databricks | `https://adb-7405610757175308.8.azuredatabricks.net` |
 | AI Foundry | `https://stihl-analytics-agent-resource.services.ai.azure.com/` |
 
+---
+
 ## Model Deployments
 
-| Deployment | Model | TPM |
-|------------|-------|-----|
-| `gpt-4o-mini` | gpt-4o-mini | 30K |
-| `text-embedding-ada-002` | text-embedding-ada-002 | 30K |
+| Deployment | Model | TPM | Purpose |
+|------------|-------|-----|---------|
+| `gpt-4o-mini` | gpt-4o-mini | 30K | Agent reasoning |
+| `text-embedding-ada-002` | text-embedding-ada-002 | 30K | Vector embeddings |
 
 ---
 
-## 1. Azure OpenAI Service
+## Storage Configuration
 
-### 1.1 Resource Configuration
+### ADLS Gen2: `adlsstihlanalytics`
 
-```yaml
-Name: openai-stihl-analytics
-Location: westus2
-Kind: OpenAI
-SKU: S0
-Custom Domain: openai-stihl-analytics
-```
+| Setting | Value |
+|---------|-------|
+| Account Type | StorageV2 |
+| Hierarchical Namespace | Enabled |
+| Container | `stihl-analytics-data` |
+| Replication | LRS |
 
-### 1.2 Model Deployments
-
-| Deployment Name | Model | Version | TPM |
-|-----------------|-------|---------|-----|
-| `gpt-4o` | gpt-4o | 2024-11-20 | 30K |
-| `text-embedding-ada-002` | text-embedding-ada-002 | 2 | 30K |
-
-### 1.3 Setup Commands
-
-```powershell
-# Create Azure OpenAI resource
-
-# Deploy GPT-4o
-az cognitiveservices account deployment create `
-  --name openai-stihl-analytics `
-  --resource-group rg-ai-foundry-learning `
-  --deployment-name gpt-4o `
-  --model-name gpt-4o `
-  --model-version "2024-11-20" `
-  --model-format OpenAI `
-  --sku-capacity 30 `
-  --sku-name Standard
-
-# Deploy Embeddings
-az cognitiveservices account deployment create `
-  --name openai-stihl-analytics `
-  --resource-group rg-ai-foundry-learning `
-  --deployment-name text-embedding-ada-002 `
-  --model-name text-embedding-ada-002 `
-  --model-version "2" `
-  --model-format OpenAI `
-  --sku-capacity 30 `
-  --sku-name Standard
-```
-
-### 1.4 Retrieve Credentials
-
-```powershell
-# Get endpoint
-az cognitiveservices account show `
-  --name openai-stihl-analytics `
-  --resource-group rg-ai-foundry-learning `
-  --query "properties.endpoint" -o tsv
-
-# Get API key
-az cognitiveservices account keys list `
-  --name openai-stihl-analytics `
-  --resource-group rg-ai-foundry-learning `
-  --query "key1" -o tsv
-```
-
----
-
-## 2. Azure Data Lake Storage Gen2
-
-### 2.1 Resource Configuration
-
-```yaml
-Name: adlsstihlanalytics
-Location: westus2
-SKU: Standard_LRS
-Kind: StorageV2
-Hierarchical Namespace: Enabled (required for ADLS Gen2)
-```
-
-### 2.2 Container Structure
-
+### Medallion Directories
 ```
 stihl-analytics-data/
-├── bronze/          # Raw CSV/JSON files
-├── silver/          # Cleaned Delta tables
-└── gold/            # Aggregated Delta tables
-```
-
-### 2.3 Setup Commands
-
-```powershell
-# Create storage account
-az storage account create `
-  --name adlsstihlanalytics `
-  --resource-group rg-ai-foundry-learning `
-  --location westus2 `
-  --sku Standard_LRS `
-  --kind StorageV2 `
-  --hns true
-
-# Get storage key
-$STORAGE_KEY = az storage account keys list `
-  --account-name adlsstihlanalytics `
-  --resource-group rg-ai-foundry-learning `
-  --query "[0].value" -o tsv
-
-# Create container
-az storage container create `
-  --name stihl-analytics-data `
-  --account-name adlsstihlanalytics `
-  --account-key $STORAGE_KEY
-
-# Create medallion directories
-foreach ($layer in @("bronze", "silver", "gold")) {
-    az storage fs directory create `
-      --name $layer `
-      --file-system stihl-analytics-data `
-      --account-name adlsstihlanalytics `
-      --account-key $STORAGE_KEY
-}
-```
-
-### 2.4 Connection String
-
-```powershell
-az storage account show-connection-string `
-  --name adlsstihlanalytics `
-  --resource-group rg-ai-foundry-learning `
-  --query "connectionString" -o tsv
+├── bronze/
+│   ├── products_raw/
+│   ├── dealers_raw/
+│   ├── sales_raw/
+│   └── inventory_raw/
+├── silver/
+└── gold/
 ```
 
 ---
 
-## 3. Azure Databricks
+## Security Configuration
 
-### 3.1 Resource Configuration
+### Managed Identity (Secure ADLS Access)
 
-```yaml
-Name: dbw-stihl-analytics
-Location: westus2
-SKU: Premium  # Required for Unity Catalog
-```
+| Component | Value |
+|-----------|-------|
+| Access Connector | `dbw-stihl-access-connector` |
+| Principal ID | `1a40f23e-a4a2-4e39-8e88-be8038f99152` |
+| Role | Storage Blob Data Contributor |
+| Scope | `adlsstihlanalytics` storage account |
 
-### 3.2 Why Premium Tier?
+### Databricks External Location
 
-| Feature | Standard | Premium |
-|---------|----------|---------|
-| Unity Catalog | ❌ | ✅ Required |
-| Mosaic AI Vector Search | ❌ | ✅ Required |
-| Row-level security | ❌ | ✅ |
-| Audit logs | Limited | Full |
-
-### 3.3 Setup Commands
-
-```powershell
-# Create Databricks workspace (takes 3-5 minutes)
-az databricks workspace create `
-  --name dbw-stihl-analytics `
-  --resource-group rg-ai-foundry-learning `
-  --location westus2 `
-  --sku premium
-
-# Get workspace URL
-az databricks workspace show `
-  --name dbw-stihl-analytics `
-  --resource-group rg-ai-foundry-learning `
-  --query "workspaceUrl" -o tsv
-```
-
-### 3.4 Post-Deployment Configuration
-
-See [DATABRICKS.md](../databricks/DATABRICKS.md) for:
-- Unity Catalog setup
-- SQL Warehouse configuration
-- Vector Search endpoint
-- External Model endpoint
+| Setting | Value |
+|---------|-------|
+| Name | `stihl_adls_location` |
+| Credential | `stihl_adls_credential` |
+| URL | `abfss://stihl-analytics-data@adlsstihlanalytics.dfs.core.windows.net/` |
+| Permissions | Read, List, Write, Delete ✅ |
 
 ---
 
-## 4. Azure AI Foundry (Standalone Project)
-
-### 4.1 Critical Requirement
-
-> ⚠️ **MUST use Standalone Project, NOT Hub-based**
-> 
-> The native Databricks connector requires `FOUNDRY_PROJECT_ENDPOINT` which is only exposed by standalone projects.
-
-### 4.2 Portal Setup (Manual)
-
-1. Navigate to [ai.azure.com](https://ai.azure.com)
-2. Click **"+ New project"**
-3. Select **"Create a new project"** (NOT "Add to existing hub")
-4. Configure:
-   - **Project name**: `stihl-analytics-agent`
-   - **Resource group**: `rg-ai-foundry-learning`
-   - **Location**: `West US 2`
-5. Click **Create**
-
-### 4.3 Verify Standalone Project
-
-After creation:
-1. Go to **Settings** → **Properties**
-2. Confirm **"Project endpoint"** is visible
-3. Copy endpoint URL for SDK configuration
-
-### 4.4 Configure Connections
-
-| Connection | Type | Configuration |
-|------------|------|---------------|
-| Azure OpenAI | API Key | Select `openai-stihl-analytics` |
-| Databricks | PAT Token | Workspace URL + Genie Space ID |
-
----
-
-## 5. Environment Configuration
-
-### 5.1 .env File Template
+## Environment Variables (.env)
 
 ```env
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT=https://openai-stihl-analytics.openai.azure.com/
 AZURE_OPENAI_API_KEY=<your-api-key>
-AZURE_OPENAI_DEPLOYMENT_GPT4O=gpt-4o
+AZURE_OPENAI_DEPLOYMENT_GPT=gpt-4o-mini
 AZURE_OPENAI_DEPLOYMENT_EMBEDDING=text-embedding-ada-002
 
 # Azure AI Foundry
-FOUNDRY_PROJECT_ENDPOINT=https://stihl-analytics-agent.cognitiveservices.azure.com/
+FOUNDRY_PROJECT_ENDPOINT=https://stihl-analytics-agent-resource.services.ai.azure.com/
 
-# Azure Data Lake Storage
+# Azure Data Lake Storage Gen2
 ADLS_ACCOUNT_NAME=adlsstihlanalytics
 ADLS_CONTAINER=stihl-analytics-data
 ADLS_CONNECTION_STRING=<your-connection-string>
+ADLS_DFS_ENDPOINT=https://adlsstihlanalytics.dfs.core.windows.net/
 
 # Azure Databricks
-DATABRICKS_WORKSPACE_URL=https://adb-xxxxx.azuredatabricks.net
-DATABRICKS_TOKEN=<your-pat-token>
-GENIE_SPACE_ID=<your-genie-space-id>
+DATABRICKS_WORKSPACE_URL=https://adb-7405610757175308.8.azuredatabricks.net
+DATABRICKS_TOKEN=<generate-pat-token>
+GENIE_SPACE_ID=<create-after-setup>
 
-# General
+# Azure Resource Info
 AZURE_RESOURCE_GROUP=rg-ai-foundry-learning
-AZURE_LOCATION=westus2
+AZURE_LOCATION=westus
 ```
 
 ---
 
-## 6. Cost Estimates
+## Setup Commands (Reference)
 
-| Resource | Monthly Estimate |
-|----------|------------------|
-| Azure OpenAI | $20-50 |
-| ADLS Gen2 (~10GB) | $2 |
-| Databricks (Serverless SQL) | $50-100 |
-| AI Foundry | $0 (pay per use) |
-| **Total** | **$75-150** |
+### Azure OpenAI
+```powershell
+# Create resource
+az cognitiveservices account create `
+  --name openai-stihl-analytics `
+  --resource-group rg-ai-foundry-learning `
+  --location westus `
+  --kind OpenAI `
+  --sku S0
+
+# Deploy models
+az cognitiveservices account deployment create `
+  --name openai-stihl-analytics `
+  --resource-group rg-ai-foundry-learning `
+  --deployment-name gpt-4o-mini `
+  --model-name gpt-4o-mini `
+  --model-version "2024-07-18" `
+  --model-format OpenAI `
+  --sku-capacity 30 `
+  --sku-name Standard
+```
+
+### ADLS Gen2
+```powershell
+# Create storage
+az storage account create `
+  --name adlsstihlanalytics `
+  --resource-group rg-ai-foundry-learning `
+  --location westus `
+  --sku Standard_LRS `
+  --kind StorageV2 `
+  --hns true
+
+# Create container and directories
+az storage container create --name stihl-analytics-data ...
+```
+
+### Databricks
+```powershell
+az databricks workspace create `
+  --name dbw-stihl-analytics `
+  --resource-group rg-ai-foundry-learning `
+  --location westus `
+  --sku premium
+```
+
+### Access Connector (Managed Identity)
+```powershell
+# Create connector
+az databricks access-connector create `
+  --name "dbw-stihl-access-connector" `
+  --resource-group rg-ai-foundry-learning `
+  --location westus `
+  --identity-type SystemAssigned
+
+# Assign RBAC role
+az role assignment create `
+  --assignee "1a40f23e-a4a2-4e39-8e88-be8038f99152" `
+  --role "Storage Blob Data Contributor" `
+  --scope "/subscriptions/f145b6d6-938e-4be9-876d-eac04dbda8e2/resourceGroups/rg-ai-foundry-learning/providers/Microsoft.Storage/storageAccounts/adlsstihlanalytics"
+```
 
 ---
 
-## ✅ Setup Checklist
+## Estimated Monthly Costs
 
-- [ ] Azure OpenAI resource created
-- [ ] GPT-4o model deployed
-- [ ] Embedding model deployed
-- [ ] ADLS Gen2 storage account created
-- [ ] Container with medallion directories created
-- [ ] Databricks Premium workspace created
-- [ ] AI Foundry standalone project created
-- [ ] Azure OpenAI connection configured
-- [ ] Environment variables documented
-- [ ] Credentials stored securely
+| Resource | Estimate |
+|----------|----------|
+| Azure OpenAI | $5-15 |
+| ADLS Gen2 | $2-5 |
+| Databricks | $50-100 |
+| AI Foundry | $5-10 |
+| **Total** | **$60-130** |
 
 ---
 
-## 🔗 Related Documents
+## ✅ Setup Checklist (Completed)
 
-- [DATABRICKS.md](../databricks/DATABRICKS.md) - Databricks workspace configuration
-- [DATA-LAYER.md](../data/DATA-LAYER.md) - Storage structure and data flow
-- [AGENT.md](../agent/AGENT.md) - AI Foundry agent setup
+- [x] Create resource group
+- [x] Deploy Azure OpenAI with models
+- [x] Create ADLS Gen2 with medallion structure
+- [x] Create Databricks Premium workspace
+- [x] Create AI Foundry standalone project
+- [x] Configure Access Connector with managed identity
+- [x] Assign RBAC roles for secure storage access
+- [x] Create storage credential in Databricks
+- [x] Create external location in Databricks
+- [x] Test connection (all permissions confirmed)
+- [x] Configure .env file
 
 ---
 
-**Last Updated**: January 2026
+## Related Documents
+
+- [PROJECT-MASTER.md](../PROJECT-MASTER.md) - Main project hub
+- [DATA-LAYER.md](../data/DATA-LAYER.md) - Data architecture
+- [DATABRICKS.md](../databricks/DATABRICKS.md) - Databricks setup
+
+---
+
+*Last Updated: January 12, 2026*

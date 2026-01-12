@@ -1,320 +1,252 @@
-# Data Layer - Medallion Architecture & Synthetic Data
+# Data Layer - Medallion Architecture
 
-> **Parent**: [PROJECT-MASTER.md](../PROJECT-MASTER.md)  
-> **Status**: ⏳ Pending  
-> **Owner**: Data Engineering
+> **Status: ✅ COMPLETE** (January 11-12, 2026)
 
 ---
 
-## Overview
+## Data Summary
 
-This document covers the data layer design including medallion architecture, synthetic data generation, and vectorization strategy.
-
-**Storage**: ADLS Gen2 (`adlsstihlanalytics`)  
-**Container**: `stihl-analytics-data`  
-**Format**: Delta Lake (Silver/Gold), CSV/JSON (Bronze)
+| Dataset | Records | Size | Location |
+|---------|---------|------|----------|
+| Products | 101 | 61 KB | Bronze → Silver → Gold |
+| Dealers | 100 | 8 KB | Bronze → Silver → Gold |
+| Sales | 562,585 | 86 MB | Bronze → Silver → Gold |
+| Inventory | 126,392 | 10 MB | Bronze → Silver → Gold |
+| **Total** | **~689K** | **97 MB** | - |
 
 ---
 
-## 1. Medallion Architecture
+## ADLS Storage Structure
 
 ```
-ADLS Gen2: stihl-analytics-data/
-│
-├── BRONZE (Raw Files)
-│   ├── sales_raw/*.csv
-│   ├── inventory_raw/*.csv
-│   ├── products_raw/products.json
-│   └── dealers_raw/dealers.csv
-│
-├── SILVER (Delta Lake - Granular)
-│   ├── sales/                    → Transaction-level
-│   ├── inventory/                → Daily snapshots
-│   ├── products/                 → Product catalog
-│   ├── dealers/                  → Dealer info
-│   ├── sales_vectorized/         → With embeddings
-│   ├── inventory_vectorized/     → With embeddings
-│   └── products_vectorized/      → With embeddings
-│
-└── GOLD (Delta Lake - Aggregated)
-    ├── sales_monthly/            → Monthly rollups
-    ├── inventory_monthly/        → Monthly snapshots
-    ├── dealer_performance/       → Dealer metrics
-    ├── sales_inv_combined/       → Joined view
-    ├── detected_anomalies/       → Anomaly results
-    ├── sales_forecasts/          → Prophet forecasts
-    ├── proactive_insights/       → Pre-computed insights
-    ├── sales_monthly_vectorized/ → With embeddings
-    ├── insights_vectorized/      → With embeddings
-    └── forecasts_vectorized/     → With embeddings
+adlsstihlanalytics/stihl-analytics-data/
+├── bronze/
+│   ├── products_raw/
+│   │   └── products.json
+│   ├── dealers_raw/
+│   │   └── dealers.csv
+│   ├── sales_raw/
+│   │   ├── sales_001.csv
+│   │   ├── sales_002.csv
+│   │   ├── sales_003.csv
+│   │   ├── sales_004.csv
+│   │   ├── sales_005.csv
+│   │   └── sales_006.csv
+│   └── inventory_raw/
+│       ├── inventory_001.csv
+│       ├── inventory_002.csv
+│       └── inventory_003.csv
+├── silver/
+└── gold/
 ```
 
 ---
 
-## 2. Data Volumes
+## Product Catalog (101 Products)
 
-| Dataset | Rows | Period | Size Est. |
-|---------|------|--------|-----------|
-| Products | ~200 | Static | < 1 MB |
-| Sales | ~500,000 | Jan 2024 - Dec 2025 | ~100 MB |
-| Inventory | ~150,000 | Daily × Products × Warehouses | ~50 MB |
-| Dealers | ~100 | Static | < 1 MB |
-
----
-
-## 3. Synthetic Data Schemas
-
-### 3.1 Products
-
-```python
-products_schema = {
-    "product_id": "str",        # e.g., "MS-271"
-    "product_name": "str",      # e.g., "MS 271 Farm Boss"
-    "category": "str",          # Chainsaw, Trimmer, Blower, etc.
-    "subcategory": "str",       # Gas, Battery, Backpack, etc.
-    "product_line": "str",      # Homeowner, Farm & Ranch, Professional
-    "engine_cc": "float",       # e.g., 50.2
-    "weight_lbs": "float",      # e.g., 12.3
-    "msrp": "float",            # e.g., 449.99
-    "cost": "float",            # e.g., 280.00
-    "description": "str",       # Product description
-    "features": "list[str]",    # Key features
-    "power_type": "str",        # Gas, Battery, Electric
-    "is_active": "bool"
-}
-```
-
-### 3.2 Sales
-
-```python
-sales_schema = {
-    "transaction_id": "str",    # UUID
-    "transaction_date": "date",
-    "product_id": "str",        # FK to products
-    "dealer_id": "str",         # FK to dealers
-    "quantity": "int",
-    "unit_price": "float",
-    "discount_pct": "float",
-    "total_amount": "float",
-    "customer_type": "str",     # Homeowner, Professional, Commercial
-    "channel": "str",           # In-Store, Online, Phone
-    "region": "str"             # Southwest, Southeast, etc.
-}
-```
-
-### 3.3 Inventory
-
-```python
-inventory_schema = {
-    "snapshot_date": "date",
-    "product_id": "str",        # FK to products
-    "warehouse_id": "str",      # e.g., "WH-TX-01"
-    "region": "str",
-    "quantity_on_hand": "int",
-    "quantity_available": "int",
-    "quantity_reserved": "int",
-    "days_of_supply": "float",
-    "reorder_point": "int",
-    "status": "str"             # NORMAL, LOW, CRITICAL, OVERSTOCK
-}
-```
-
-### 3.4 Dealers
-
-```python
-dealers_schema = {
-    "dealer_id": "str",         # e.g., "DLR-AZ-001"
-    "dealer_name": "str",
-    "city": "str",
-    "state": "str",
-    "region": "str",
-    "dealer_type": "str",       # Authorized, Premium, Service Center
-    "year_established": "int",
-    "is_active": "bool"
-}
-```
-
----
-
-## 4. STIHL Product Categories
-
-Based on official STIHL product lineup:
+### Category Distribution
 
 | Category | Count | Examples |
 |----------|-------|----------|
-| **Chainsaws** | ~50 | MS 170, 180, 250, 271, 291, 311, 362, 461, 500i, MSA battery |
-| **Trimmers** | ~40 | FS 38, 40, 50, 56, 91, 111, 131, FSA battery |
-| **Blowers** | ~30 | BG handheld, BR backpack, BGA battery |
-| **Hedge Trimmers** | ~20 | HS gas, HSA battery, HL extended |
-| **Lawn Mowers** | ~20 | RM gas, iMOW robotic |
-| **Multi-System** | ~15 | KM series with attachments |
-| **Accessories** | ~25 | Chains, bars, batteries, chargers, PPE |
+| Accessories | 24 | Chains, bars, batteries, PPE |
+| Chainsaws | 21 | MS 170, MS 271, MS 500i |
+| Trimmers | 14 | FS 38, FS 91 R, FSA 130 |
+| Blowers | 13 | BG 50, BR 600, BGA 100 |
+| Hedge Trimmers | 12 | HS 45, HSA 86, HL 94 |
+| Lawn Mowers | 10 | RM 443, RMA 510, iMOW |
+| Multi-System | 7 | KM 56, KMA 130 |
+
+### Power Types
+- Gas: 56 products
+- Battery: 38 products
+- Accessory: 7 products
 
 ---
 
-## 5. Regional Distribution
+## Dealer Network (100 Dealers)
 
-| Region | % of Sales | Key States |
-|--------|------------|------------|
-| Southwest | 25% | TX, AZ, NM, OK |
-| Southeast | 22% | FL, GA, NC, SC, AL |
-| Midwest | 20% | OH, IN, IL, MI, WI |
-| Northeast | 18% | NY, PA, NJ, MA, CT |
-| West | 15% | CA, WA, OR, CO |
+### Regional Distribution
 
----
+| Region | Dealers | Percentage |
+|--------|---------|------------|
+| Southwest | 25 | 25% |
+| Southeast | 22 | 22% |
+| Midwest | 20 | 20% |
+| Northeast | 18 | 18% |
+| West | 15 | 15% |
 
-## 6. Seasonal Patterns
-
-```python
-seasonal_weights = {
-    "January": 0.6,
-    "February": 0.7,
-    "March": 1.2,      # Spring start
-    "April": 1.5,      # Peak
-    "May": 1.5,        # Peak
-    "June": 1.3,
-    "July": 0.7,       # Summer slow
-    "August": 0.7,     # Summer slow
-    "September": 1.2,  # Fall start
-    "October": 1.3,    # Peak
-    "November": 1.4,   # Black Friday
-    "December": 0.8
-}
-```
+### Dealer Types
+- Authorized Dealer: 66
+- Premium Dealer: 23
+- Service Center: 11
 
 ---
 
-## 7. Injected Anomalies
+## Sales Transactions (562,585 Records)
 
-For demo purposes, inject these anomalies:
+### Date Range
+- Start: January 1, 2024
+- End: December 31, 2025
+- Duration: 24 months
 
-| Anomaly | Type | Details |
-|---------|------|---------|
-| **Black Friday Spike** | Sales +300% | November 25-30, all categories |
-| **Hurricane Texas** | Sales +340% | June, Chainsaws in TX |
-| **Supply Disruption** | Sales -60% | August, Blowers nationwide |
-| **Stockout** | Inventory 0 | MS-271 in Southwest, Q3 |
-| **Overstock** | Inventory +200% | FS-91 in Northeast, Q4 |
+### Key Metrics
+- Total Revenue: $394,927,842.99
+- Total Units: 816,913
+- Avg Transaction: $701.99
 
----
-
-## 8. Vectorization Strategy
-
-### 8.1 Embedding Model
-
-**Model**: Azure OpenAI `text-embedding-ada-002`  
-**Delivery**: Databricks External Model Endpoint  
-**Dimensions**: 1536
-
-### 8.2 Silver Layer Narratives
-
-**sales_vectorized** - Per transaction:
-```
-"On 2024-03-15, Arizona Power Equipment in Southwest sold 3 MS 271 Farm Boss 
-chainsaws for $1,282.47 (unit price $449.99, 5% discount). Customer type: 
-Professional. Channel: In-Store."
-```
-
-**inventory_vectorized** - Per snapshot:
-```
-"On 2024-03-15, WH-TX-01 (Southwest) had 145 units of MS 271 Farm Boss on hand 
-(122 available, 23 reserved). Days of supply: 32.5. Status: NORMAL."
-```
-
-**products_vectorized** - Per product:
-```
-"MS 271 Farm Boss is a Gas Chainsaw in the Farm & Ranch line. It features 
-50.2 cc power, weighs 12.3 lbs, and retails at $449.99. Professional-grade 
-chainsaw ideal for cutting firewood, felling medium trees, and farm/ranch use."
-```
-
-### 8.3 Gold Layer Narratives
-
-**sales_monthly_vectorized** - Monthly summary:
-```
-"In March 2024, Southwest region sold 2,340 units of Chainsaw products for 
-$890,000 in revenue. This is +15% vs previous month and +8% vs same month 
-last year. Top performing product: MS 271 Farm Boss."
-```
-
-**forecasts_vectorized** - Predictions:
-```
-"FORECAST: Chainsaw sales for Q1 2025 predicted at 45,000 units ($18.2M revenue), 
-+12% vs Q1 2024. Confidence: 87%."
-```
-
-**insights_vectorized** - Anomalies/trends:
-```
-"ANOMALY DETECTED (HIGH): On 2024-06-15, chainsaw sales in Texas spiked 340% 
-above normal (1,523 units vs 447 average). Correlation: Hurricane landfall. 
-Affected dealers: 12."
-```
+### Seasonal Weights (Monthly)
+| Month | Weight | Description |
+|-------|--------|-------------|
+| Jan | 0.6 | Winter slow |
+| Feb | 0.7 | - |
+| Mar | 1.2 | Spring start |
+| Apr | 1.5 | Peak season |
+| May | 1.5 | Peak season |
+| Jun | 1.3 | Summer |
+| Jul | 0.7 | Summer slow |
+| Aug | 0.7 | Summer slow |
+| Sep | 1.2 | Fall start |
+| Oct | 1.3 | Fall |
+| Nov | 1.4 | Pre-holiday |
+| Dec | 0.8 | Holiday |
 
 ---
 
-## 9. Query Routing Matrix
+## Inventory Snapshots (126,392 Records)
 
-| Question Type | Layer | Table | Method |
-|---------------|-------|-------|--------|
-| Product recommendations | Silver | products_vectorized | Vector Search |
-| Specific transaction lookup | Silver | sales | SQL |
-| Transaction search by criteria | Silver | sales_vectorized | Vector Search |
-| Daily inventory status | Silver | inventory | SQL |
-| Inventory issues search | Silver | inventory_vectorized | Vector Search |
-| Monthly/quarterly summaries | Gold | sales_monthly | SQL |
-| Period comparison questions | Gold | sales_monthly_vectorized | Vector Search |
-| Anomaly/insight questions | Gold | insights_vectorized | Vector Search |
-| Forecast questions | Gold | forecasts_vectorized | Vector Search |
-| Proactive insights (on load) | Gold | proactive_insights | SQL |
+### Configuration
+- Sample Frequency: Every 3 days
+- Products Tracked: 37 key products
+- Warehouses: 13 across 5 regions
+
+### Status Distribution
+| Status | Count | Percentage |
+|--------|-------|------------|
+| NORMAL | 74,092 | 58.6% |
+| LOW | 30,909 | 24.5% |
+| CRITICAL | 20,019 | 15.8% |
+| OUT_OF_STOCK | 1,372 | 1.1% |
+
+### Warehouses by Region
+- Southwest: WH-TX-01, WH-TX-02, WH-AZ-01
+- Southeast: WH-FL-01, WH-GA-01, WH-NC-01
+- Midwest: WH-OH-01, WH-IL-01, WH-MI-01
+- Northeast: WH-NY-01, WH-PA-01
+- West: WH-CA-01, WH-CA-02, WH-WA-01
 
 ---
 
-## 10. Data Generation Scripts
+## Injected Anomalies (Demo Scenarios)
 
-Location: `data/synthetic/`
+### 🌀 Hurricane Texas (Jun 10-20, 2024)
+| Metric | Value |
+|--------|-------|
+| Region | Southwest (TX only) |
+| Category | Chainsaws |
+| Impact | +280% sales spike |
+| Verified | 444 vs 158 normal transactions |
+
+### 🛒 Black Friday 2024 (Nov 25-30, 2024)
+| Metric | Value |
+|--------|-------|
+| Region | All regions |
+| Category | All products |
+| Impact | +290% sales spike |
+| Verified | 17,145 vs 5,857 normal transactions |
+
+### 📦 Supply Disruption (Aug 2024)
+| Metric | Value |
+|--------|-------|
+| Region | All regions |
+| Category | Blowers |
+| Impact | -60% sales drop |
+| Verified | 1,199 vs 3,003 July transactions (0.4x) |
+
+### ⚠️ MS-271 Stockout (Sep 1 - Oct 15, 2024)
+| Metric | Value |
+|--------|-------|
+| Region | Southwest |
+| Product | MS-271 Farm Boss |
+| Impact | 5% normal stock |
+| Verified | 45/45 snapshots critical/OOS |
+
+### 📈 FS-91 Overstock (Oct - Dec 2024)
+| Metric | Value |
+|--------|-------|
+| Region | Northeast |
+| Product | FS-91 R Trimmer |
+| Impact | 300% normal stock |
+
+---
+
+## Data Generation Scripts
 
 | Script | Purpose | Output |
 |--------|---------|--------|
-| `generate_products.py` | STIHL product catalog | `products.json` |
-| `generate_dealers.py` | Dealer network | `dealers.csv` |
-| `generate_sales.py` | 500K transactions | `sales_*.csv` |
-| `generate_inventory.py` | Daily snapshots | `inventory_*.csv` |
-| `inject_anomalies.py` | Add anomaly patterns | Updates sales/inventory |
+| `generate_all.py` | Master runner | All files |
+| `generate_products.py` | Product catalog | products.json |
+| `generate_dealers.py` | Dealer network | dealers.csv |
+| `generate_sales.py` | Transactions | sales_*.csv |
+| `generate_inventory.py` | Snapshots | inventory_*.csv |
+| `upload_to_adls.py` | ADLS upload | - |
+
+### Running Data Generation
+```powershell
+cd data\synthetic
+python generate_all.py
+python upload_to_adls.py
+```
 
 ---
 
-## ✅ Data Layer Checklist
+## Databricks Tables
 
-### Bronze
-- [ ] Generate products.json (~200 products)
-- [ ] Generate dealers.csv (~100 dealers)
-- [ ] Generate sales CSVs (~500K rows)
-- [ ] Generate inventory CSVs (~150K rows)
-- [ ] Upload to ADLS bronze/
+### Bronze Schema (Raw)
+```sql
+dbw_stihl_analytics.bronze.products
+dbw_stihl_analytics.bronze.dealers
+dbw_stihl_analytics.bronze.sales
+dbw_stihl_analytics.bronze.inventory
+```
 
-### Silver
-- [ ] Create Delta tables from Bronze
-- [ ] Add data quality checks
-- [ ] Generate narrative columns
-- [ ] Create vectorized tables
-- [ ] Build Vector Search indexes
+### Silver Schema (Cleaned)
+```sql
+dbw_stihl_analytics.silver.products
+dbw_stihl_analytics.silver.dealers
+dbw_stihl_analytics.silver.sales
+dbw_stihl_analytics.silver.inventory
+```
 
-### Gold
-- [ ] Create monthly aggregations
-- [ ] Run anomaly detection
-- [ ] Generate forecasts
-- [ ] Create proactive insights
-- [ ] Build Gold Vector Search indexes
-
----
-
-## 🔗 Related Documents
-
-- [INFRASTRUCTURE.md](../infrastructure/INFRASTRUCTURE.md) - ADLS Gen2 setup
-- [DATABRICKS.md](../databricks/DATABRICKS.md) - ETL notebooks, Vector Search
-- [AGENT.md](../agent/AGENT.md) - How agent queries data
+### Gold Schema (Aggregated)
+```sql
+dbw_stihl_analytics.gold.monthly_sales
+dbw_stihl_analytics.gold.product_performance
+dbw_stihl_analytics.gold.dealer_performance
+dbw_stihl_analytics.gold.inventory_status
+```
 
 ---
 
-**Last Updated**: January 2026
+## ✅ Checklist (Completed)
+
+- [x] Generate products.json (101 products)
+- [x] Generate dealers.csv (100 dealers)
+- [x] Generate sales transactions (562K records)
+- [x] Generate inventory snapshots (126K records)
+- [x] Inject anomalies for demo scenarios
+- [x] Upload to ADLS Bronze layer
+- [x] Create Bronze Delta tables
+- [x] Transform to Silver tables
+- [x] Aggregate to Gold tables
+
+---
+
+## Related Documents
+
+- [PROJECT-MASTER.md](../PROJECT-MASTER.md) - Main project hub
+- [DATABRICKS.md](../databricks/DATABRICKS.md) - ETL notebooks
+- [INFRASTRUCTURE.md](../infrastructure/INFRASTRUCTURE.md) - Storage setup
+
+---
+
+*Last Updated: January 12, 2026*

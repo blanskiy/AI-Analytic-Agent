@@ -1,0 +1,101 @@
+dealer_id,dealer_name,city,state,region,dealer_type,year_established,is_active
+DLR-TX-001,TX Equipment Co.,Dallas,TX,Southwest,Authorized Dealer,1985,True
+DLR-NM-002,All Seasons Santa Fe,Santa Fe,NM,Southwest,Service Center,1995,True
+DLR-OK-003,Oklahoma City Lawn & Garden,Oklahoma City,OK,Southwest,Authorized Dealer,1997,True
+DLR-OK-004,Norman Chainsaw & More,Norman,OK,Southwest,Authorized Dealer,1997,True
+DLR-AZ-005,Pro Equipment Mesa,Mesa,AZ,Southwest,Authorized Dealer,2013,True
+DLR-NM-006,NM Power Equipment,Santa Fe,NM,Southwest,Authorized Dealer,1996,True
+DLR-AZ-007,Scottsdale Power Equipment,Scottsdale,AZ,Southwest,Authorized Dealer,1997,True
+DLR-OK-008,Oklahoma City Power Equipment,Oklahoma City,OK,Southwest,Authorized Dealer,1996,True
+DLR-NM-009,All Seasons Las Cruces,Las Cruces,NM,Southwest,Service Center,1986,True
+DLR-TX-010,Austin Hardware & Power,Austin,TX,Southwest,Premium Dealer,1997,True
+DLR-AZ-011,Mesa Power Equipment,Mesa,AZ,Southwest,Authorized Dealer,1987,True
+DLR-OK-012,All Seasons Norman,Norman,OK,Southwest,Authorized Dealer,1997,True
+DLR-NM-013,Albuquerque Outdoor Power,Albuquerque,NM,Southwest,Authorized Dealer,1997,True
+DLR-NM-014,NM Equipment Co.,Albuquerque,NM,Southwest,Authorized Dealer,1997,True
+DLR-OK-015,Adams's Equipment,Norman,OK,Southwest,Authorized Dealer,2020,True
+DLR-NM-016,Santa Fe Outdoor Power,Santa Fe,NM,Southwest,Authorized Dealer,2014,True
+DLR-TX-017,Allen's Power Equipment,Dallas,TX,Southwest,Authorized Dealer,2004,True
+DLR-OK-018,Hill's Power Equipment,Tulsa,OK,Southwest,Premium Dealer,1999,True
+DLR-TX-019,Lubbock Outdoor Power,Lubbock,TX,Southwest,Authorized Dealer,2001,True
+DLR-OK-020,Taylor's Power Equipment,Oklahoma City,OK,Southwest,Premium Dealer,1997,True
+DLR-NM-021,Santa Fe Rental & Sales,Santa Fe,NM,Southwest,Premium Dealer,1990,True
+DLR-TX-022,Fort Worth Equipment Sales,Fort Worth,TX,Southwest,Premium Dealer,2018,True
+DLR-NM-023,Santa Fe Lawn & Garden,Santa Fe,NM,Southwest,Premium Dealer,1987,True
+DLR-NM-024,Las Cruces Hardware & Power,Las Cruces,NM,Southwest,Premium Dealer,2011,True
+DLR-AZ-025,Premier Equipment Mesa,Mesa,AZ,Southwest,Authorized Dealer,2012,True
+DLR-AL-026,King's Equipment,Birmingham,AL,Southeast,Premium Dealer,2013,True
+DLR-SC-027,Columbia Chainsaw & More,Columbia,SC,Southeast,Authorized Dealer,2001,True
+DLR-NC-028,Pro Equipment Raleigh,Raleigh,NC,Southeast,Authorized Dealer,2015,True
+DLR-AL-029,Birmingham Hardware & Power,Birmingham,AL,Southeast,Authorized Dealer,1996,True
+DLR-FL-030,Jacksonville Power Equipment,Jacksonville,FL,Southeast,Authorized Dealer,1986,True
+DLR-SC-031,Lewis's Power Equipment,Greenville,SC,Southeast,Service Center,1985,True
+DLR-NC-032,Greensboro Hardware & Power,Greensboro,NC,Southeast,Authorized Dealer,2000,True
+DLR-NC-033,Charlotte Lawn & Garden,Charlotte,NC,Southeast,Service Center,1993,True
+DLR-FL-034,Premier Equipment Jacksonville,Jacksonville,FL,Southeast,Authorized Dealer,1989,True
+DLR-AL-035,Birmingham Rental & Sales,Birmingham,AL,Southeast,Authorized Dealer,1991,True
+DLR-AL-036,Young's Power Equipment,Mobile,AL,Southeast,Authorized Dealer,2014,True
+DLR-SC-037,SC Power Equipment,Charleston,SC,Southeast,Service Center,2015,True
+DLR-GA-038,Athens Power Equipment,Athens,GA,Southeast,Authorized Dealer,1985,True
+DLR-NC-039,Raleigh Chainsaw & More,Raleigh,NC,Southeast,Authorized Dealer,2002,True
+DLR-SC-040,Charleston Lawn & Garden,Charleston,SC,Southeast,Authorized Dealer,1992,True
+DLR-GA-041,Nelson's Power Equipment,Savannah,GA,Southeast,Authorized Dealer,1998,True
+DLR-FL-042,Premier Equipment Tallahassee,Tallahassee,FL,Southeast,Authorized Dealer,2013,True
+DLR-NC-043,Raleigh Rental & Sales,Raleigh,NC,Southeast,Authorized Dealer,1991,True
+DLR-AL-044,Pro Equipment Montgomery,Montgomery,AL,Southeast,Authorized Dealer,1992,True
+DLR-FL-045,FL Equipment Co.,Miami,FL,Southeast,Premium Dealer,2015,True
+DLR-FL-046,Miami Small Engine,Miami,FL,Southeast,Authorized Dealer,2007,True
+DLR-NC-047,NC Power Equipment,Asheville,NC,Southeast,Premium Dealer,2019,True
+DLR-MI-048,Smith's Power Equipment,Detroit,MI,Midwest,Authorized Dealer,2001,True
+DLR-MI-049,Grand Rapids Equipment Sales,Grand Rapids,MI,Midwest,Premium Dealer,1998,True
+DLR-MI-050,Detroit Outdoor Power,Detroit,MI,Midwest,Authorized Dealer,2000,True
+DLR-IL-051,Chicago Outdoor Power,Chicago,IL,Midwest,Premium Dealer,2008,True
+DLR-IL-052,IL Power Equipment,Springfield,IL,Midwest,Authorized Dealer,1990,True
+DLR-MI-053,All Seasons Ann Arbor,Ann Arbor,MI,Midwest,Authorized Dealer,2020,True
+DLR-WI-054,Premier Equipment Appleton,Appleton,WI,Midwest,Service Center,1989,True
+DLR-MI-055,MI Power Equipment,Detroit,MI,Midwest,Premium Dealer,1999,True
+DLR-IN-056,Premier Equipment South Bend,South Bend,IN,Midwest,Authorized Dealer,1989,True
+DLR-OH-057,Akron Hardware & Power,Akron,OH,Midwest,Premium Dealer,1989,True
+DLR-MI-058,MI Equipment Co.,Detroit,MI,Midwest,Authorized Dealer,2010,True
+DLR-MI-059,Premier Equipment Ann Arbor,Ann Arbor,MI,Midwest,Authorized Dealer,2004,True
+DLR-IL-060,Peoria Power Equipment,Peoria,IL,Midwest,Authorized Dealer,2006,True
+DLR-WI-061,Madison Hardware & Power,Madison,WI,Midwest,Premium Dealer,2020,True
+DLR-MI-062,Lansing Small Engine,Lansing,MI,Midwest,Authorized Dealer,2019,True
+DLR-OH-063,OH Power Equipment,Akron,OH,Midwest,Premium Dealer,2008,True
+DLR-IN-064,Brown's Power Equipment,Evansville,IN,Midwest,Authorized Dealer,2001,True
+DLR-WI-065,Martin's Power Equipment,Green Bay,WI,Midwest,Authorized Dealer,2004,True
+DLR-IN-066,All Seasons Evansville,Evansville,IN,Midwest,Authorized Dealer,1989,True
+DLR-IN-067,IN Equipment Co.,Indianapolis,IN,Midwest,Service Center,2008,True
+DLR-MA-068,Worcester Equipment Sales,Worcester,MA,Northeast,Authorized Dealer,2017,True
+DLR-NJ-069,NJ Equipment Co.,Jersey City,NJ,Northeast,Premium Dealer,1986,True
+DLR-NY-070,Syracuse Rental & Sales,Syracuse,NY,Northeast,Authorized Dealer,1995,True
+DLR-PA-071,PA Power Equipment,Harrisburg,PA,Northeast,Authorized Dealer,2003,True
+DLR-CT-072,Hartford Lawn & Garden,Hartford,CT,Northeast,Authorized Dealer,1995,True
+DLR-NJ-073,Jersey City Outdoor Power,Jersey City,NJ,Northeast,Authorized Dealer,1986,True
+DLR-CT-074,Stamford Lawn & Garden,Stamford,CT,Northeast,Authorized Dealer,2004,True
+DLR-CT-075,CT Power Equipment,Hartford,CT,Northeast,Premium Dealer,2002,True
+DLR-PA-076,All Seasons Allentown,Allentown,PA,Northeast,Authorized Dealer,2000,True
+DLR-MA-077,Springfield Power Equipment,Springfield,MA,Northeast,Premium Dealer,2019,True
+DLR-MA-078,Cambridge Lawn & Garden,Cambridge,MA,Northeast,Authorized Dealer,2014,True
+DLR-PA-079,PA Equipment Co.,Pittsburgh,PA,Northeast,Authorized Dealer,2017,True
+DLR-CT-080,Hartford Outdoor Power,Hartford,CT,Northeast,Authorized Dealer,1996,True
+DLR-NJ-081,NJ Power Equipment,Trenton,NJ,Northeast,Authorized Dealer,1985,True
+DLR-PA-082,Allentown Outdoor Power,Allentown,PA,Northeast,Authorized Dealer,2009,True
+DLR-NJ-083,Princeton Small Engine,Princeton,NJ,Northeast,Premium Dealer,2001,True
+DLR-MA-084,Williams's Equipment,Worcester,MA,Northeast,Authorized Dealer,1995,True
+DLR-CT-085,CT Equipment Co.,New Haven,CT,Northeast,Premium Dealer,1985,True
+DLR-WA-086,Premier Equipment Spokane,Spokane,WA,West,Premium Dealer,1992,True
+DLR-OR-087,Campbell's Equipment,Salem,OR,West,Service Center,2010,True
+DLR-WA-088,Pro Equipment Spokane,Spokane,WA,West,Authorized Dealer,1999,True
+DLR-CO-089,All Seasons Boulder,Boulder,CO,West,Authorized Dealer,2007,True
+DLR-WA-090,WA Equipment Co.,Olympia,WA,West,Service Center,1996,True
+DLR-CA-091,San Francisco Outdoor Power,San Francisco,CA,West,Authorized Dealer,2016,True
+DLR-CA-092,Fresno Lawn & Garden,Fresno,CA,West,Service Center,1989,True
+DLR-CO-093,Premier Equipment Denver,Denver,CO,West,Authorized Dealer,1995,True
+DLR-CO-094,Denver Equipment Sales,Denver,CO,West,Authorized Dealer,2002,True
+DLR-CA-095,Oakland Hardware & Power,Oakland,CA,West,Service Center,2017,True
+DLR-WA-096,Tacoma Small Engine,Tacoma,WA,West,Authorized Dealer,2010,True
+DLR-OR-097,All Seasons Bend,Bend,OR,West,Authorized Dealer,2004,True
+DLR-CA-098,Oakland Power Equipment,Oakland,CA,West,Authorized Dealer,2018,True
+DLR-CO-099,Boulder Outdoor Power,Boulder,CO,West,Authorized Dealer,1987,True
+DLR-CA-100,CA Equipment Co.,Fresno,CA,West,Premium Dealer,2008,True
