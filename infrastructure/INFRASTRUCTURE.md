@@ -15,14 +15,30 @@ This document covers all Azure resource provisioning and configuration for the A
 
 ---
 
-## Resource Inventory
+## Resource Inventory (Deployed)
 
-| Resource | Name | SKU/Tier | Purpose |
-|----------|------|----------|---------|
-| Azure OpenAI | `openai-stihl-analytics` | S0 | GPT-4o + Embeddings |
-| ADLS Gen2 | `adlsstihlanalytics` | Standard_LRS | Medallion data storage |
-| Databricks | `dbw-stihl-analytics` | Premium | Unity Catalog, Vector Search |
-| AI Foundry | `stihl-analytics-agent` | Standalone | Agent orchestration |
+| Resource | Name | Location | Status |
+|----------|------|----------|--------|
+| Azure OpenAI | `openai-stihl-analytics` | West US | ✅ Deployed |
+| ADLS Gen2 | `adlsstihlanalytics` | West US | ✅ Deployed |
+| Databricks | `dbw-stihl-analytics` | West US | ✅ Deployed |
+| AI Foundry | `stihl-analytics-agent` | West US 2 | ✅ Deployed |
+
+## Endpoints
+
+| Service | Endpoint |
+|---------|----------|
+| Azure OpenAI | `https://openai-stihl-analytics.openai.azure.com/` |
+| ADLS DFS | `https://adlsstihlanalytics.dfs.core.windows.net/` |
+| Databricks | `https://adb-7405610757175308.8.azuredatabricks.net` |
+| AI Foundry | `https://stihl-analytics-agent-resource.services.ai.azure.com/` |
+
+## Model Deployments
+
+| Deployment | Model | TPM |
+|------------|-------|-----|
+| `gpt-4o-mini` | gpt-4o-mini | 30K |
+| `text-embedding-ada-002` | text-embedding-ada-002 | 30K |
 
 ---
 
@@ -49,13 +65,6 @@ Custom Domain: openai-stihl-analytics
 
 ```powershell
 # Create Azure OpenAI resource
-az cognitiveservices account create `
-  --name openai-stihl-analytics `
-  --resource-group rg-ai-foundry-learning `
-  --location westus2 `
-  --kind OpenAI `
-  --sku S0 `
-  --custom-domain openai-stihl-analytics
 
 # Deploy GPT-4o
 az cognitiveservices account deployment create `
