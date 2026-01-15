@@ -1,4 +1,4 @@
-﻿"""
+"""
 Agent tools registry - exports all tool functions and definitions.
 
 This module provides a unified interface for all agent tools.
@@ -18,10 +18,12 @@ from .rag_tools import (
     RAG_TOOL_DEFINITIONS,
     RAG_TOOL_FUNCTIONS
 )
+from .dealer_tools import query_dealer_data, DEALER_TOOL_DEFINITION
+from .forecast_tools import get_sales_forecast, FORECAST_TOOL_DEFINITION
+from .trend_tools import analyze_trends, TREND_TOOL_DEFINITION
 
 
 # Tool definitions for Azure OpenAI function calling
-# (Existing tools don't export definitions, so we define them here)
 SALES_TOOL_DEFINITIONS = [
     {
         "type": "function",
@@ -175,11 +177,27 @@ INSIGHTS_TOOL_DEFINITIONS = [
 
 # Combined tool functions mapping
 TOOL_FUNCTIONS = {
+    # SQL Tools - Sales
     "query_sales_data": query_sales_data,
+    
+    # SQL Tools - Inventory
     "query_inventory_data": query_inventory_data,
+    
+    # SQL Tools - Insights
     "get_proactive_insights": get_proactive_insights,
     "detect_anomalies_realtime": detect_anomalies_realtime,
     "get_daily_briefing": get_daily_briefing,
+    
+    # SQL Tools - Dealer
+    "query_dealer_data": query_dealer_data,
+    
+    # SQL Tools - Forecast
+    "get_sales_forecast": get_sales_forecast,
+    
+    # SQL Tools - Trends
+    "analyze_trends": analyze_trends,
+    
+    # RAG Tools
     **RAG_TOOL_FUNCTIONS
 }
 
@@ -188,17 +206,28 @@ TOOL_DEFINITIONS = (
     SALES_TOOL_DEFINITIONS +
     INVENTORY_TOOL_DEFINITIONS +
     INSIGHTS_TOOL_DEFINITIONS +
+    [DEALER_TOOL_DEFINITION] +
+    [FORECAST_TOOL_DEFINITION] +
+    [TREND_TOOL_DEFINITION] +
     RAG_TOOL_DEFINITIONS
 )
 
 __all__ = [
+    # Registry
     "TOOL_FUNCTIONS",
     "TOOL_DEFINITIONS",
+    
+    # SQL Tools
     "query_sales_data",
     "query_inventory_data",
     "get_proactive_insights",
     "detect_anomalies_realtime",
     "get_daily_briefing",
+    "query_dealer_data",
+    "get_sales_forecast",
+    "analyze_trends",
+    
+    # RAG Tools
     "search_products",
     "compare_products",
     "get_product_recommendations",

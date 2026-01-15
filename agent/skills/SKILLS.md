@@ -1,300 +1,215 @@
-# Skills Framework
-
-> **Parent Document:** [AGENT.md](../AGENT.md)  
-> **Last Updated:** January 14, 2025  
-> **Phase:** 5c - Skills Framework
+# STIHL Analytics Agent - Skills Framework
 
 ## Overview
 
-Skills encapsulate domain-specific knowledge and routing logic, enabling the STIHL Analytics Agent to intelligently route queries to appropriate tools and provide contextually relevant responses.
+The Skills Framework provides intelligent query routing and context-aware prompt enhancement for the STIHL Analytics Agent. Each skill encapsulates domain-specific knowledge, tools, and response guidelines.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        USER QUERY                                │
-│                            ↓                                     │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    SKILL ROUTER                          │    │
-│  │  1. Check all skills for pattern matches                 │    │
-│  │  2. Calculate confidence scores                          │    │
-│  │  3. Select best match (confidence × priority)            │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                            ↓                                     │
-│  ┌──────────┬──────────┬──────────┬──────────┐                  │
-│  │ Product  │  Sales   │Inventory │ Insights │                  │
-│  │  Skill   │  Skill   │  Skill   │  Skill   │                  │
-│  │  (RAG)   │  (SQL)   │  (SQL)   │  (SQL)   │                  │
-│  │Priority:20│Priority:15│Priority:15│Priority:25│                │
-│  └──────────┴──────────┴──────────┴──────────┘                  │
-│                            ↓                                     │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │              ENHANCED SYSTEM PROMPT                      │    │
-│  │  Base prompt + Skill-specific guidance + Available tools │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                            ↓                                     │
-│                    TOOL EXECUTION                                │
-└─────────────────────────────────────────────────────────────────┘
+User Query
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      SKILL ROUTER                            │
+│  1. Pattern matching against all skills                      │
+│  2. Confidence scoring                                       │
+│  3. Priority-based selection                                 │
+│  4. Return best match or None                                │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    SELECTED SKILL                            │
+│  • Enhanced system prompt injection                          │
+│  • Filtered tool list                                        │
+│  • Domain-specific context                                   │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+Azure OpenAI → Tool Calls → Response
 ```
 
-## Available Skills
+## Available Skills (7 Total)
 
-### 1. Product Expert (RAG)
+### Core Skills
 
-| Property | Value |
-|----------|-------|
-| **Name** | `product_expert` |
-| **Type** | RAG (Vector Search) |
-| **Priority** | 20 |
-| **Backend** | Databricks Vector Search |
+| Skill | Name | Priority | Tools | Description |
+|-------|------|----------|-------|-------------|
+| **Insights Advisor** | `insights_advisor` | 25 | get_proactive_insights, detect_anomalies_realtime, get_daily_briefing | Proactive alerts, anomalies, briefings |
+| **Product Expert** | `product_expert` | 20 | search_products, compare_products, get_product_recommendations | RAG-based semantic product search |
+| **Sales Analyst** | `sales_analyst` | 15 | query_sales_data | Revenue, trends, rankings |
+| **Inventory Analyst** | `inventory_analyst` | 15 | query_inventory_data | Stock levels, stockouts |
 
-**Handles:**
-- Product recommendations based on use case
-- Feature-based product search
-- Product comparisons (MS 500i vs MS 462)
-- Finding products by characteristics (lightweight, professional)
+### Extended Skills (Phase 5d)
 
-**Tools:** `search_products`, `compare_products`, `get_product_recommendations`
+| Skill | Name | Priority | Tools | Description |
+|-------|------|----------|-------|-------------|
+| **Forecast Analyst** | `forecast_analyst` | 18 | get_sales_forecast | Predictions, projections, seasonal patterns |
+| **Trend Analyst** | `trend_analyst` | 16 | analyze_trends | YoY, MoM, growth rates, momentum |
+| **Dealer Analyst** | `dealer_analyst` | 15 | query_dealer_data | Dealer performance, network coverage |
 
-**Trigger Examples:**
-- "What chainsaw is best for professional logging?"
-- "Recommend a lightweight battery trimmer"
-- "Compare the MS 500i and MS 462"
-- "Products with anti-vibration feature"
+## Priority System
 
----
+Higher priority skills are checked first and win ties in confidence scoring:
 
-### 2. Sales Analyst (SQL)
+1. **25** - Insights Advisor (greetings, anomalies get priority)
+2. **20** - Product Expert (RAG queries)
+3. **18** - Forecast Analyst (future-focused queries)
+4. **16** - Trend Analyst (comparison queries)
+5. **15** - Sales, Inventory, Dealer (standard analysis)
 
-| Property | Value |
-|----------|-------|
-| **Name** | `sales_analyst` |
-| **Type** | SQL |
-| **Priority** | 15 |
-| **Backend** | Databricks SQL Warehouse |
+## Skill Details
 
-**Handles:**
-- Revenue and sales volume analysis
-- Top products/dealers/regions rankings
-- Sales trends over time
-- Category and regional breakdowns
+### Insights Advisor
+**Triggers:** Greetings, "good morning", "what should I know", "anomalies", "alerts", "briefing"
 
-**Tools:** `query_sales_data`
-
-**Trigger Examples:**
-- "What's our total revenue for 2024?"
-- "Top selling products last quarter"
-- "Sales trend month over month"
-- "Revenue by region"
-
----
-
-### 3. Inventory Analyst (SQL)
-
-| Property | Value |
-|----------|-------|
-| **Name** | `inventory_analyst` |
-| **Type** | SQL |
-| **Priority** | 15 |
-| **Backend** | Databricks SQL Warehouse |
-
-**Handles:**
-- Stock levels and availability
-- Stockout identification
-- Days of supply analysis
-- Regional/category inventory distribution
-
-**Tools:** `query_inventory_data`
-
-**Trigger Examples:**
-- "Current stock levels"
-- "Products running low"
-- "Stockouts in Southwest region"
-- "Days of supply by category"
-
----
-
-### 4. Insights Advisor (SQL)
-
-| Property | Value |
-|----------|-------|
-| **Name** | `insights_advisor` |
-| **Type** | SQL |
-| **Priority** | 25 (Highest) |
-| **Backend** | Databricks SQL Warehouse |
-
-**Handles:**
-- Morning greetings and daily briefings
-- Proactive insights and alerts
-- Anomaly detection
-- What needs attention queries
-
-**Tools:** `get_proactive_insights`, `detect_anomalies_realtime`, `get_daily_briefing`
-
-**Trigger Examples:**
+**Example Queries:**
 - "Good morning!"
 - "What should I know today?"
 - "Any anomalies in March 2024?"
-- "Critical issues?"
+- "Give me a daily briefing"
 
----
+### Product Expert (RAG)
+**Triggers:** Product names, "best for", "recommend", "compare products", features
 
-## Routing Logic
+**Example Queries:**
+- "What chainsaw is best for professionals?"
+- "Compare the MS 461 and MS 500i"
+- "Show me battery-powered blowers under 15 lbs"
 
-### Pattern Matching
+### Sales Analyst
+**Triggers:** Revenue, sales, top products, rankings, quarterly performance
 
-Each skill defines regex patterns that trigger activation:
+**Example Queries:**
+- "What was total revenue in 2024?"
+- "Top 10 products by sales"
+- "Regional breakdown for Q3"
 
-```python
-class ProductSkill(BaseSkill):
-    @property
-    def triggers(self) -> list[str]:
-        return [
-            r"(best|recommend|suggest).*(chainsaw|trimmer|blower)",
-            r"(compare|vs|versus).*(ms|fs|bg)",
-            # ... more patterns
-        ]
-```
+### Inventory Analyst
+**Triggers:** Stock, inventory, low stock, stockouts, days of supply
 
-### Confidence Scoring
+**Example Queries:**
+- "Products running low on stock?"
+- "Show me critical inventory items"
+- "Days of supply for chainsaws"
 
-Confidence is calculated based on:
-1. **Pattern length** - Longer patterns = more specific = higher confidence
-2. **Keyword overlap** - More matching keywords = higher confidence
-3. **Base confidence** - All matches start at 0.7
+### Dealer Analyst
+**Triggers:** Dealer, dealership, partner, territory, coverage
 
-### Selection Algorithm
+**Example Queries:**
+- "Who are our top dealers?"
+- "Show me dealer performance by region"
+- "Where do we have coverage gaps?"
+- "How many flagship dealers do we have?"
 
-```python
-# Pseudo-code
-matches = [skill.matches(query) for skill in skills]
-matches.sort(key=lambda m: (m.confidence, skill.priority), reverse=True)
-return matches[0]  # Best match
-```
+### Forecast Analyst
+**Triggers:** Forecast, predict, projection, next month/quarter, seasonal
 
-## File Structure
+**Example Queries:**
+- "What's the sales forecast for next quarter?"
+- "Project revenue through year end"
+- "What are our seasonal patterns?"
+- "When is our peak season?"
 
-```
-agent/skills/
-├── __init__.py           # Package exports
-├── base_skill.py         # BaseSkill abstract class
-├── router.py             # SkillRouter implementation
-├── product_skill.py      # RAG-based product search
-├── sales_skill.py        # SQL-based sales analytics
-├── inventory_skill.py    # SQL-based inventory analytics
-├── insights_skill.py     # SQL-based proactive insights
-└── SKILLS.md            # This documentation
-```
+### Trend Analyst
+**Triggers:** YoY, MoM, growth rate, momentum, vs last year, trend
 
-## Usage Examples
+**Example Queries:**
+- "How does this year compare to last year?"
+- "Show me YoY growth by category"
+- "Is momentum picking up?"
+- "Month-over-month change in revenue"
 
-### Basic Routing
+## Routing Examples
 
-```python
-from agent.skills import route_query, get_router
-
-# Simple routing
-match = route_query("What chainsaw is best for professionals?")
-print(match.skill_name)        # "product_expert"
-print(match.confidence)        # 0.8
-print(match.tools_available)   # ["search_products", "compare_products", ...]
-
-# Get enhanced prompt
-router = get_router()
-skill = router.get_skill(match.skill_name)
-enhanced = skill.get_enhanced_prompt(base_system_prompt)
-```
-
-### Debug Routing
-
-```python
-router = get_router()
-explanation = router.explain_routing("Compare MS 500i and MS 462")
-print(explanation)
-# Query: Compare MS 500i and MS 462
-#
-# Matches found:
-#   • product_expert: 0.85 confidence
-#     Pattern: (compare|vs|versus).*(ms|fs|bg)
-#     Tools: search_products, compare_products, get_product_recommendations
-#
-# ✅ Selected: product_expert
-```
-
-### List All Skills
-
-```python
-router = get_router()
-for skill_info in router.list_skills():
-    print(f"{skill_info['name']}: {skill_info['description']}")
-```
+| Query | Skill | Confidence | Reason |
+|-------|-------|------------|--------|
+| "Good morning!" | insights_advisor | 0.9 | Greeting pattern |
+| "What chainsaw is best for pros?" | product_expert | 0.85 | Product + recommendation |
+| "Total revenue for 2024" | sales_analyst | 0.8 | Revenue + time period |
+| "Products running low?" | inventory_analyst | 0.8 | Stock level query |
+| "Who are our top dealers?" | dealer_analyst | 0.8 | Dealer + ranking |
+| "Sales forecast for Q2?" | forecast_analyst | 0.85 | Forecast + time |
+| "YoY growth rate?" | trend_analyst | 0.85 | YoY pattern |
 
 ## Adding New Skills
 
-1. **Create skill file** in `agent/skills/`:
-
+1. **Create skill class** in `agent/skills/`:
 ```python
-# agent/skills/dealer_skill.py
 from .base_skill import BaseSkill
 
-class DealerSkill(BaseSkill):
+class NewSkill(BaseSkill):
     @property
     def name(self) -> str:
-        return "dealer_expert"
-    
-    @property
-    def description(self) -> str:
-        return "Analyze dealer performance and network"
+        return "skill_name"
     
     @property
     def triggers(self) -> list[str]:
-        return [
-            r"(dealer|distributor|partner)",
-            r"(store|location|where to buy)",
-        ]
+        return [r"pattern1", r"pattern2"]
     
     @property
     def tools(self) -> list[str]:
-        return ["query_dealer_data"]
+        return ["tool_name"]
     
     @property
     def system_prompt(self) -> str:
-        return "You are a STIHL dealer network expert..."
+        return "Skill-specific guidance..."
 ```
 
-2. **Register in router.py**:
-
+2. **Create tool** in `agent/tools/`:
 ```python
-from .dealer_skill import DealerSkill
+def new_tool(**kwargs) -> str:
+    # Implementation
+    return json.dumps(result)
 
-def _register_default_skills(self):
-    # ... existing skills
-    self.register(DealerSkill())
+TOOL_DEFINITION = {...}
 ```
 
-3. **Export in __init__.py**:
-
+3. **Register** in `router.py`:
 ```python
-from .dealer_skill import DealerSkill
-__all__ = [..., "DealerSkill"]
+from .new_skill import NewSkill
+self.register(NewSkill())
 ```
+
+4. **Export** in `tools/__init__.py`
 
 ## Testing
 
 ```bash
-# Run skill router tests
+# Test all skills
 python -m tests.test_skills
+python -m tests.test_new_skills
 
-# Test specific routing
+# Test routing interactively
 python -c "
 from agent.skills import get_router
 router = get_router()
-print(router.explain_routing('What chainsaw for professionals?'))
+print(router.explain_routing('Your query here'))
 "
 ```
 
-## Related Documentation
+## Integration with Agent
 
-- [AGENT.md](../AGENT.md) - Agent architecture overview
-- [tools/README.md](../tools/README.md) - Tool implementations
-- [PROJECT_SUMMARY.md](../../PROJECT_SUMMARY.md) - Project overview
+The `agent_realtime.py` integrates skills via:
+
+```python
+# In chat() method:
+skill_match = self.router.route(user_message)
+if skill_match:
+    enhanced_prompt = self.router.get_prompt_for_skill(
+        skill_match.skill_name, 
+        BASE_SYSTEM_PROMPT
+    )
+    self._update_system_prompt(enhanced_prompt)
+```
+
+This enables:
+- **Dynamic prompt enhancement** based on query type
+- **Tool filtering** to only relevant tools per skill
+- **Logging** of routing decisions for debugging
+
+---
+
+*Last Updated: January 14, 2025*
+*Phase 5d - Extended Skills (Dealer, Forecast, Trend)*
