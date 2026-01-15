@@ -1,10 +1,10 @@
 # STIHL Analytics Agent - Project Summary
 
 ## Project Overview
-Building an AI-powered analytics agent for STIHL power equipment data that demonstrates advanced Azure AI capabilities including proactive insights, natural language querying, anomaly detection, and (next) RAG-based semantic search.
+Building an AI-powered analytics agent for STIHL power equipment data that demonstrates advanced Azure AI capabilities including proactive insights, natural language querying, anomaly detection, and RAG-based semantic search.
 
 **Repository:** https://github.com/blanskiy/AI-Analytic-Agent
-**Latest Commit:** Phase 4 complete with live function calling
+**Latest Commit:** Phase 5b complete - RAG with Databricks Vector Search
 
 ---
 
@@ -18,11 +18,25 @@ Building an AI-powered analytics agent for STIHL power equipment data that demon
 │      ↓                                                           │
 │  Azure OpenAI (gpt-4o-mini) with Function Calling               │
 │      ↓                                                           │
-│  Agent selects tool → Executes Python function                  │
-│      ↓                                                           │
-│  Databricks SQL Warehouse (live queries)                        │
+│  Agent routes query to appropriate tool:                        │
+│  ├── SQL Tools (quantitative) → Databricks SQL Warehouse        │
+│  └── RAG Tools (qualitative) → Databricks Vector Search         │
 │      ↓                                                           │
 │  Results returned → Natural language response                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Tool Routing Logic
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Query Type              │  Tool                    │  Backend  │
+├──────────────────────────┼──────────────────────────┼───────────┤
+│  Revenue, metrics        │  query_sales_data        │  SQL      │
+│  Stock levels            │  query_inventory_data    │  SQL      │
+│  Alerts, anomalies       │  get_proactive_insights  │  SQL      │
+│  Product features        │  search_products         │  Vector   │
+│  Recommendations         │  get_product_recommendations│ Vector │
+│  Compare products        │  compare_products        │  SQL+Vec  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -38,6 +52,8 @@ Building an AI-powered analytics agent for STIHL power equipment data that demon
 | Databricks Workspace | dbw-stihl-analytics | adb-7405610757175308.8.azuredatabricks.net |
 | SQL Warehouse | ef25929815cf2952 | Serverless |
 | Unity Catalog | dbw_stihl_analytics | |
+| Vector Endpoint | stihl-vector-endpoint | STANDARD tier |
+| Vector Index | product_index | BGE-Large embeddings |
 
 ---
 
@@ -46,7 +62,7 @@ Building an AI-powered analytics agent for STIHL power equipment data that demon
 ### Catalog: `dbw_stihl_analytics`
 
 #### Silver Schema (Cleansed Data)
-All tables now **partitioned by year, month**.
+All tables partitioned by year, month.
 
 **silver.sales** (562,585 rows)
 ```
@@ -87,7 +103,7 @@ year INT (partition)
 month INT (partition)
 ```
 
-**silver.products** (~37 products)
+**silver.products** (101 products)
 ```
 product_id STRING
 product_name STRING
@@ -100,8 +116,8 @@ voltage INT
 weight_lbs DOUBLE
 msrp DOUBLE
 cost DOUBLE
-description STRING  ← Has content, good for RAG
-features ARRAY<STRING>  ← Has content, good for RAG
+description STRING  ← Used for RAG embeddings
+features ARRAY<STRING>  ← Used for RAG embeddings
 is_active BOOLEAN
 ```
 
@@ -120,79 +136,38 @@ is_active BOOLEAN
 #### Gold Schema (Aggregated)
 
 **gold.monthly_sales** (partitioned by year, month)
-```
-year INT (partition)
-month INT (partition)
-category STRING
-region STRING
-transaction_count BIGINT
-total_units BIGINT
-total_revenue DOUBLE
-avg_transaction_value DOUBLE
-```
-
 **gold.inventory_status**
-```
-product_id STRING
-product_name STRING
-category STRING
-warehouse_id STRING
-region STRING
-quantity_on_hand INT
-quantity_available INT
-days_of_supply DOUBLE
-status STRING
-```
-
 **gold.product_performance**
+**gold.dealer_performance**
+**gold.proactive_insights** (13 critical anomalies)
+
+#### Vectors Schema (Phase 5b - NEW)
+
+**vectors.product_embeddings_source** (101 rows)
 ```
-product_id STRING
+product_id STRING (primary key)
 product_name STRING
 category STRING
-transaction_count BIGINT
-total_units_sold BIGINT
-total_revenue DOUBLE
-avg_discount_pct DOUBLE
-```
-
-**gold.dealer_performance**
-```
-dealer_id STRING
-dealer_name STRING
-region STRING
-state STRING
-transaction_count BIGINT
-total_units_sold BIGINT
-total_revenue DOUBLE
-```
-
-**gold.proactive_insights** (13 critical anomalies)
-```
-insight_id STRING
-insight_type STRING
-severity STRING
-title STRING
+subcategory STRING
+power_type STRING
+weight_lbs DOUBLE
+msrp DOUBLE
 description STRING
-affected_entity STRING
-affected_entity_type STRING
-metric_name STRING
-metric_value DOUBLE
-expected_value DOUBLE
-deviation_pct DOUBLE
-detected_at TIMESTAMP
-is_active BOOLEAN
-recommended_action STRING
-supporting_data STRING
+features_text STRING
+embedding_text STRING  ← Concatenated text for embedding generation
 ```
+- Change Data Feed enabled for Delta Sync
+- Synced to Vector Search index
 
-#### Backup Tables (in default schema)
-- default.sales_backup
-- default.inventory_backup
-- default.monthly_sales_backup
+**Vector Search Resources:**
+- **Endpoint:** stihl-vector-endpoint (STANDARD)
+- **Index:** dbw_stihl_analytics.vectors.product_index
+- **Embedding Model:** databricks-bge-large-en
+- **Pipeline Type:** TRIGGERED (manual sync)
 
 ---
 
-## Agent Implementation (Phase 4 - Complete)
+## Agent Implementation
 
 ### Local Project Structure
 ```
@@ -203,44 +178,56 @@ C:\Users\blans\source\repos\ai-analytic-agent\
 │   ├── databricks_client.py   ← SQL warehouse connection
 │   ├── prompts/
 │   │   ├── __init__.py
-│   │   └── system_prompt.py
+│   │   └── system_prompt.py   ← Updated with RAG routing logic
 │   └── tools/
-│       ├── __init__.py        ← Exports TOOL_FUNCTIONS, TOOL_DEFINITIONS
-│       ├── sales_tools.py     ← query_sales_data (6 query types)
-│       ├── inventory_tools.py ← query_inventory_data (7 query types)
-│       └── insights_tools.py  ← get_proactive_insights, detect_anomalies_realtime, get_daily_briefing
+│       ├── __init__.py        ← Exports TOOL_FUNCTIONS, TOOL_DEFINITIONS (8 tools)
+│       ├── sales_tools.py     ← query_sales_data
+│       ├── inventory_tools.py ← query_inventory_data
+│       ├── insights_tools.py  ← get_proactive_insights, detect_anomalies_realtime, get_daily_briefing
+│       └── rag_tools.py       ← search_products, compare_products, get_product_recommendations (NEW)
 ├── config/
 │   ├── __init__.py
-│   └── settings.py            ← Reads from .env, supports multiple variable names
+│   └── settings.py
 ├── databricks/
 │   └── notebooks/
-│       └── proactive_insights_pipeline.py
+│       ├── proactive_insights_pipeline.py
+│       └── setup_vector_search.py  (NEW)
 ├── tests/
 │   ├── __init__.py
 │   ├── test_databricks_connection.py
-│   └── test_tools.py
-├── .env                       ← Contains all credentials
+│   ├── test_tools.py
+│   └── test_rag_tools.py      (NEW)
+├── .env
 └── requirements.txt
 ```
 
-### Working Agent Tools
+### Agent Tools (8 Total)
 
-| Tool | Function | Use Case |
-|------|----------|----------|
-| `query_sales_data` | SQL queries on gold.monthly_sales, gold.product_performance | Revenue, trends, top products, regional analysis |
-| `query_inventory_data` | SQL queries on gold.inventory_status | Stock levels, stockouts, days of supply |
-| `get_proactive_insights` | Reads gold.proactive_insights or generates real-time | Anomalies, alerts at conversation start |
-| `detect_anomalies_realtime` | Z-score analysis on any month | Specific period anomaly detection |
-| `get_daily_briefing` | Combines metrics + top insights | Daily overview |
+| Tool | Type | Function | Use Case |
+|------|------|----------|----------|
+| `query_sales_data` | SQL | Revenue, trends, product performance | "What's our total revenue?" |
+| `query_inventory_data` | SQL | Stock levels, stockouts | "Products running low?" |
+| `get_proactive_insights` | SQL | Pre-computed anomalies, alerts | "Any critical issues?" |
+| `detect_anomalies_realtime` | SQL | Z-score analysis on any period | "Anomalies in March 2024" |
+| `get_daily_briefing` | SQL | Combined metrics + insights | "Good morning!" |
+| `search_products` | RAG | Semantic product search | "Best chainsaw for professionals" |
+| `compare_products` | SQL | Side-by-side comparison | "Compare MS 500i vs MS 462" |
+| `get_product_recommendations` | RAG | Use case-based recommendations | "What do I need for 5 acres?" |
 
 ### Agent Capabilities Verified
 
 ```
-✅ "Good morning! What should I know today?" → Calls get_daily_briefing + get_proactive_insights
-✅ "What were our top selling products?" → Calls query_sales_data
-✅ "How is the Southwest region doing?" → Calls BOTH query_sales_data AND query_inventory_data
-✅ "Run anomaly detection on revenue by category for March 2024" → Calls detect_anomalies_realtime with time_period
-✅ "Show me sales trends over time" → Returns 24 months of data with insights
+✅ SQL Queries:
+   "What were our top selling products?" → query_sales_data
+   "How is the Southwest region doing?" → query_sales_data + query_inventory_data
+   "Run anomaly detection for March 2024" → detect_anomalies_realtime
+
+✅ RAG Queries (NEW):
+   "What chainsaw is best for professional logging?" → search_products
+   "Recommend a lightweight battery trimmer under $300" → search_products with filters
+   "Compare the MS 500i and MS 462" → compare_products
+   "What products have anti-vibration features?" → search_products
+   "I have 5 acres, what do I need?" → get_product_recommendations
 ```
 
 ### Running the Agent
@@ -249,6 +236,10 @@ C:\Users\blans\source\repos\ai-analytic-agent\
 cd C:\Users\blans\source\repos\ai-analytic-agent
 .venv\Scripts\activate
 python -m agent.agent_realtime
+
+# Run all tests
+python -m tests.test_tools
+python -m tests.test_rag_tools
 ```
 
 ---
@@ -260,8 +251,19 @@ python -m agent.agent_realtime
 | Total Revenue | $394,927,843 |
 | Total Units | 816,913 |
 | Time Range | Jan 2024 - Dec 2025 (24 months) |
+| Products | 101 active |
+| Categories | 7 |
 | Top Region | Southwest ($99.3M) |
 | Top Product | MS 881 ($21.4M) |
+
+### Product Data Quality (RAG)
+| Metric | Count |
+|--------|-------|
+| Total products | 101 |
+| Active products | 101 (100%) |
+| Has description | 101 (100%) |
+| Has features | 77 (76%) |
+| Categories | 7 |
 
 ### Injected Demo Anomalies
 - **March 2024**: Sales spike across all categories (+80-122% above expected)
@@ -271,7 +273,7 @@ python -m agent.agent_realtime
 
 ## Environment Variables (.env)
 
-```
+```bash
 # Databricks
 DATABRICKS_HOST=adb-7405610757175308.8.azuredatabricks.net
 DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/ef25929815cf2952
@@ -287,7 +289,7 @@ AZURE_AI_PROJECT_NAME=stihl-analytics-agent
 AZURE_RESOURCE_GROUP=rg-ai-foundry-learning
 AZURE_LOCATION=westus
 
-# Azure OpenAI (need to verify these are in .env)
+# Azure OpenAI
 AZURE_OPENAI_ENDPOINT=<your-endpoint>
 AZURE_OPENAI_API_KEY=<your-key>
 AZURE_OPENAI_DEPLOYMENT_GPT=gpt-4o-mini
@@ -311,105 +313,35 @@ AZURE_OPENAI_DEPLOYMENT_GPT=gpt-4o-mini
 - Anomaly detection with time_period parameter
 - All tests passing
 
-### Phase 5a: Table Partitioning ✅ (Just Completed)
+### Phase 5a: Table Partitioning ✅
 - silver.sales partitioned by year, month
 - silver.inventory partitioned by year, month  
 - gold.monthly_sales partitioned by year, month
 - ZORDER optimization applied
 - Backup tables preserved in default schema
 
+### Phase 5b: RAG with Vector Search ✅ (COMPLETE)
+- Created `vectors` schema in Unity Catalog
+- Built `product_embeddings_source` table with enriched text
+- Deployed Vector Search endpoint (stihl-vector-endpoint)
+- Created HNSW index with BGE-Large embeddings
+- Implemented 3 RAG tools: search_products, compare_products, get_product_recommendations
+- Updated agent tool registry and system prompt
+- All RAG tests passing
+
 ---
 
-## Next Steps: Phase 5b - RAG Implementation
+## Next Steps: Phase 6 - UI Implementation
 
-### Goal
-Add semantic search capability so agent can answer qualitative questions about products based on description and features.
+### Planned Approach
+1. **Phase 6a**: Test in Azure AI Foundry Playground
+2. **Phase 6b**: Custom React UI with Plotly visualizations
 
-### RAG Scope
-- **Products**: Has `description` (string) and `features` (array<string>) - VIABLE for RAG
-- **Dealers**: Only categorical fields - NOT viable for RAG
-- **Sales/Inventory**: Numerical data - Use SQL, not RAG
-
-### Implementation Plan
-
-#### Step 1: Create Vectors Schema and Source Table
-```sql
-CREATE SCHEMA IF NOT EXISTS dbw_stihl_analytics.vectors;
-
-CREATE TABLE dbw_stihl_analytics.vectors.product_embeddings_source (
-    product_id STRING,
-    product_name STRING,
-    category STRING,
-    subcategory STRING,
-    power_type STRING,
-    weight_lbs DOUBLE,
-    msrp DOUBLE,
-    description STRING,
-    features_text STRING,
-    embedding_text STRING
-) USING DELTA;
-
-INSERT OVERWRITE dbw_stihl_analytics.vectors.product_embeddings_source
-SELECT 
-    product_id,
-    product_name,
-    category,
-    subcategory,
-    power_type,
-    weight_lbs,
-    msrp,
-    description,
-    CONCAT_WS(', ', features) as features_text,
-    CONCAT_WS(' | ', 
-        product_name,
-        category,
-        COALESCE(subcategory, ''),
-        COALESCE(power_type, ''),
-        CONCAT('Weight: ', weight_lbs, ' lbs'),
-        COALESCE(description, ''),
-        CONCAT_WS(', ', features)
-    ) as embedding_text
-FROM dbw_stihl_analytics.silver.products
-WHERE is_active = true;
-```
-
-#### Step 2: Create Vector Search Endpoint (Python notebook)
-```python
-from databricks.vector_search.client import VectorSearchClient
-vsc = VectorSearchClient()
-vsc.create_endpoint(name="stihl-vector-endpoint", endpoint_type="STANDARD")
-```
-
-#### Step 3: Create HNSW Index
-```python
-vsc.create_delta_sync_index(
-    endpoint_name="stihl-vector-endpoint",
-    index_name="dbw_stihl_analytics.vectors.product_index",
-    source_table_name="dbw_stihl_analytics.vectors.product_embeddings_source",
-    primary_key="product_id",
-    embedding_source_column="embedding_text",
-    embedding_model_endpoint_name="databricks-bge-large-en",
-    pipeline_type="TRIGGERED"
-)
-```
-
-#### Step 4: Create RAG Tool (agent/tools/rag_tools.py)
-- `search_products(query, category, power_type, max_weight, max_price, top_k)`
-- Uses Databricks Vector Search for similarity matching
-
-#### Step 5: Update Agent
-- Add `search_products` to TOOL_FUNCTIONS and TOOL_DEFINITIONS
-- Update system prompt with routing logic:
-  - Numbers/metrics → SQL tools
-  - Features/recommendations → RAG tool
-
-### Expected RAG Queries After Implementation
-```
-"What chainsaw is best for professionals?" → search_products (RAG)
-"Lightweight battery trimmer options" → search_products (RAG)
-"Which products have Easy2Start?" → search_products (RAG)
-"Compare MS 500i vs MS 462 features" → search_products (RAG)
-```
+### Potential Features
+- Chat interface with tool call visibility
+- Interactive charts for sales/inventory data
+- Product comparison cards
+- Anomaly visualization timeline
 
 ---
 
@@ -418,10 +350,12 @@ vsc.create_delta_sync_index(
 | File | Purpose |
 |------|---------|
 | `agent/agent_realtime.py` | Main orchestrator - start here |
-| `agent/tools/insights_tools.py` | Most complex tool with anomaly detection |
-| `agent/databricks_client.py` | SQL connection logic |
+| `agent/tools/rag_tools.py` | RAG implementation (NEW) |
+| `agent/tools/insights_tools.py` | Anomaly detection logic |
+| `agent/prompts/system_prompt.py` | Tool routing logic |
+| `agent/databricks_client.py` | SQL connection |
 | `config/settings.py` | Environment variable handling |
-| `tests/test_tools.py` | Comprehensive tool testing |
+| `tests/test_rag_tools.py` | RAG tool tests (NEW) |
 
 ---
 
@@ -437,11 +371,49 @@ python -m agent.agent_realtime
 
 # Run tests
 python -m tests.test_tools
+python -m tests.test_rag_tools
 
-# Git commit
+# Git operations
 git add .
-git commit -m "message"
+git commit -m "Phase 5b: RAG with Databricks Vector Search"
 git push origin main
+```
+
+---
+
+## Databricks Notebooks Reference
+
+### Setup Vector Search (databricks/notebooks/setup_vector_search.py)
+```python
+# Install SDK (run once per cluster)
+# %%sh
+# uv pip install databricks-vectorsearch --system
+
+from databricks.vector_search.client import VectorSearchClient
+
+vsc = VectorSearchClient(disable_notice=True)
+
+# Create endpoint
+vsc.create_endpoint(name="stihl-vector-endpoint", endpoint_type="STANDARD")
+
+# Create index
+vsc.create_delta_sync_index(
+    endpoint_name="stihl-vector-endpoint",
+    index_name="dbw_stihl_analytics.vectors.product_index",
+    source_table_name="dbw_stihl_analytics.vectors.product_embeddings_source",
+    primary_key="product_id",
+    embedding_source_column="embedding_text",
+    embedding_model_endpoint_name="databricks-bge-large-en",
+    pipeline_type="TRIGGERED"
+)
+
+# Test search
+index = vsc.get_index("stihl-vector-endpoint", "dbw_stihl_analytics.vectors.product_index")
+results = index.similarity_search(
+    query_text="professional chainsaw",
+    columns=["product_id", "product_name", "description"],
+    num_results=5
+)
 ```
 
 ---
@@ -450,11 +422,12 @@ git push origin main
 
 1. **Status case sensitivity**: Inventory status values are UPPERCASE (CRITICAL, LOW, NORMAL)
 2. **Anomaly detection**: Requires minimum 2 months historical data
-3. **Backup tables**: Original unpartitioned tables in default schema as *_backup
-4. **Products table**: Has description and features - ready for RAG
-5. **Dealers table**: No text fields for semantic search - SQL only
+3. **Vector Search endpoint**: Costs ~$0.07/hour when running - stop when not in use
+4. **Change Data Feed**: Required on source table for Delta Sync indexes
+5. **SDK installation**: Use `uv pip install databricks-vectorsearch --system` in notebooks
+6. **Weight/price filters**: Applied as post-filters in code (Vector Search only supports categorical filters)
 
 ---
 
-*Last Updated: January 13, 2026*
-*Phase 4 Complete, Phase 5b (RAG) Next*
+*Last Updated: January 14, 2025*
+*Phase 5b Complete - RAG with Databricks Vector Search*
